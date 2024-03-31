@@ -95,7 +95,7 @@ class FunctionNegativeTripletSelector:
 
 
 class SupervisedContrastive(pl.LightningModule):
-    def __init__(self, encoder_name, margin=60, lr=1e-4):
+    def __init__(self, encoder_name, margin=80, lr=1e-4):
         super().__init__()
         self.encoder = AutoModel.from_pretrained(pretrained_model_name_or_path=encoder_name)
         self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=encoder_name)
