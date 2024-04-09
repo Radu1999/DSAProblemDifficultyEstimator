@@ -5,11 +5,13 @@ from utils import collate_fn
 import pytorch_lightning as pl
 from lightning.pytorch.loggers import WandbLogger
 import wandb
+import os
 import torch
 torch.set_float32_matmul_precision('medium')
+os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 BATCH_SIZE = 40
-LR = 1e-7
+LR = 1e-6
 dataset = load_dataset("cosmadrian/rocode")
 
 # Dataloaders

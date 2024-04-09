@@ -17,6 +17,9 @@ def hardest_negative(loss_values):
     hard_negative = np.argmax(loss_values)
     return hard_negative if loss_values[hard_negative] > 0 else None
 
+def random_hard_negative(loss_values):
+    hard_negatives = np.where(loss_values > 0)[0]
+    return np.random.choice(hard_negatives) if len(hard_negatives) > 0 else None
 
 class OnlineTripletLoss(nn.Module):
     """
@@ -40,7 +43,7 @@ class OnlineTripletLoss(nn.Module):
 
         ap_distances = (embeddings[triplets[:, 0]] - embeddings[triplets[:, 1]]).pow(2).sum(1)  # .pow(.5)
         an_distances = (embeddings[triplets[:, 0]] - embeddings[triplets[:, 2]]).pow(2).sum(1)  # .pow(.5)
-        losses = F.relu((ap_distances - an_distances) / an_distances.mean() + self.margin)
+        losses = F.relu(ap_distances - an_distances + self.margin)
 
         return losses.mean(), len(triplets)
 
@@ -54,7 +57,6 @@ class FunctionNegativeTripletSelector:
     """
 
     def __init__(self, margin, negative_selection_fn, cpu=True):
-        super(FunctionNegativeTripletSelector, self).__init__()
         self.cpu = cpu
         self.margin = margin
         self.negative_selection_fn = negative_selection_fn
@@ -93,13 +95,37 @@ class FunctionNegativeTripletSelector:
 
         return torch.LongTensor(triplets)
 
+class AllTripletSelector:
+    """
+    Returns all possible triplets
+    May be impractical in most cases
+    """
+
+    def get_triplets(self, embeddings, labels):
+        labels = labels.cpu().data.numpy()
+        triplets = []
+        for label in set(labels):
+            label_mask = (labels == label)
+            label_indices = np.where(label_mask)[0]
+            if len(label_indices) < 2:
+                continue
+            negative_indices = np.where(np.logical_not(label_mask))[0]
+            anchor_positives = list(combinations(label_indices, 2))  # All anchor-positive pairs
+
+            # Add all negatives for all positive pairs
+            temp_triplets = [[anchor_positive[0], anchor_positive[1], neg_ind] for anchor_positive in anchor_positives
+                             for neg_ind in negative_indices]
+            triplets += temp_triplets
+
+        return torch.LongTensor(np.array(triplets))
 
 class SupervisedContrastive(pl.LightningModule):
     def __init__(self, encoder_name, margin=70, lr=1e-7):
         super().__init__()
         self.encoder = AutoModel.from_pretrained(pretrained_model_name_or_path=encoder_name)
         self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=encoder_name)
-        triplet_selector = FunctionNegativeTripletSelector(margin=margin, negative_selection_fn=hardest_negative)
+        triplet_selector = FunctionNegativeTripletSelector(margin=margin, negative_selection_fn=random_hard_negative)
+        #triplet_selector = AllTripletSelector()
         self.loss = OnlineTripletLoss(triplet_selector=triplet_selector, margin=margin)
         self.lr = lr
 
@@ -136,5 +162,5 @@ class SupervisedContrastive(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
         return optimizer
