@@ -40,7 +40,7 @@ class OnlineTripletLoss(nn.Module):
 
         ap_distances = (embeddings[triplets[:, 0]] - embeddings[triplets[:, 1]]).pow(2).sum(1)  # .pow(.5)
         an_distances = (embeddings[triplets[:, 0]] - embeddings[triplets[:, 2]]).pow(2).sum(1)  # .pow(.5)
-        losses = F.relu(ap_distances - an_distances + self.margin)
+        losses = F.relu((ap_distances - an_distances) / an_distances.mean() + self.margin)
 
         return losses.mean(), len(triplets)
 
@@ -95,7 +95,7 @@ class FunctionNegativeTripletSelector:
 
 
 class SupervisedContrastive(pl.LightningModule):
-    def __init__(self, encoder_name, margin=80, lr=1e-4):
+    def __init__(self, encoder_name, margin=70, lr=1e-7):
         super().__init__()
         self.encoder = AutoModel.from_pretrained(pretrained_model_name_or_path=encoder_name)
         self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=encoder_name)

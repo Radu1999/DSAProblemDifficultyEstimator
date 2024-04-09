@@ -8,20 +8,21 @@ import wandb
 import torch
 torch.set_float32_matmul_precision('medium')
 
-BATCH_SIZE = 16
+BATCH_SIZE = 40
+LR = 1e-7
 dataset = load_dataset("cosmadrian/rocode")
 
 # Dataloaders
-train_loader = DataLoader(dataset['train'], collate_fn=collate_fn, batch_size=BATCH_SIZE, shuffle=True)
-val_loader = DataLoader(dataset['validation'], collate_fn=collate_fn, batch_size=BATCH_SIZE)
+train_loader = DataLoader(dataset['train'], collate_fn=collate_fn, batch_size=BATCH_SIZE, num_workers=16, shuffle=True)
+val_loader = DataLoader(dataset['validation'], collate_fn=collate_fn, num_workers=16, batch_size=BATCH_SIZE)
 
 model_name = 'dumitrescustefan/bert-base-romanian-cased-v1'
-model = SupervisedContrastive(encoder_name=model_name)
+model = SupervisedContrastive(encoder_name=model_name, lr=LR)
 
 # Logger
-wandb.login(key='')
+wandb.login(key='93443c480bfbaa0b19be76d24f2efeb6be3319fd')
 wandb_logger = WandbLogger(log_model="all")
-trainer = pl.Trainer(logger=wandb_logger)
+trainer = pl.Trainer(logger=wandb_logger, max_epochs=300, enable_checkpointing=False)
 
 trainer.fit(model, train_dataloaders=train_loader)
 
